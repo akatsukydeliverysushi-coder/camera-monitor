@@ -10,7 +10,7 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\Camera Monitor Companion
 DefaultGroupName=Camera Monitor
-OutputDir=..\dist\installer
+OutputDir=dist\installer
 OutputBaseFilename=CameraMonitorCompanion-Setup
 Compression=lzma
 SolidCompression=yes
@@ -19,9 +19,9 @@ PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64
 
 [Files]
-Source: "..\dist\CameraMonitorCompanion.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\dist\ffmpeg.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\companion\README.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\CameraMonitorCompanion.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\ffmpeg.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "companion\README.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\Camera Monitor Companion"; Filename: "{app}\{#MyAppExeName}"
