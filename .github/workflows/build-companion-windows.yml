@@ -1,0 +1,58 @@
+name: Build Camera Monitor Companion Windows
+
+on:
+  push:
+    paths:
+      - 'companion/**'
+      - 'installer/**'
+      - '.github/workflows/build-companion-windows.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pkg
+        shell: powershell
+        run: npm install -g @yao-pkg/pkg
+
+      - name: Build Companion EXE
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          pkg companion/server.js --targets node20-win-x64 --output dist/CameraMonitorCompanion.exe
+
+      - name: Download FFmpeg
+        shell: powershell
+        run: |
+          $zip = "$env:RUNNER_TEMP\ffmpeg.zip"
+          Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath "$env:RUNNER_TEMP\ffmpeg" -Force
+          $exe = Get-ChildItem "$env:RUNNER_TEMP\ffmpeg" -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          if (-not $exe) { throw 'ffmpeg.exe não encontrado' }
+          Copy-Item $exe.FullName dist/ffmpeg.exe
+
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path dist\installer | Out-Null
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installer\CameraMonitorCompanion.iss
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: CameraMonitorCompanion-Windows
+          path: dist/installer/CameraMonitorCompanion-Setup.exe
+          if-no-files-found: error
