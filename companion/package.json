@@ -1,0 +1,9 @@
+{
+  "name": "camera-monitor-companion",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Serviço local do Camera Monitor para testes de conectividade de dispositivos autorizados.",
+  "main": "server.js",
+  "scripts": {"start": "node server.js"},
+  "engines": {"node": ">=18"}
+}
