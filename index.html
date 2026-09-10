@@ -10,8 +10,8 @@
 </head>
 <body>
 <header>
-  <div class="brand"><div class="brandIcon">📹</div><div><strong>Camera Monitor</strong><small>Monitoramento de câmeras</small></div></div>
-  <div class="headerActions"><button id="installBtn" hidden>⬇ Instalar</button><button id="settingsBtn">⚙ Configurações</button></div>
+  <div class="brand"><div class="brandIcon">📹</div><div><strong>Camera Monitor</strong><small>Monitoramento profissional</small></div></div>
+  <div class="headerActions"><span id="companionState" class="companionState offlineState">● Serviço local</span><button id="installBtn" hidden>⬇ Instalar</button><button id="settingsBtn">⚙ Configurações</button></div>
 </header>
 <main>
 <section class="dashboard">
@@ -21,19 +21,20 @@
   <div class="stat"><span>Visualizando</span><b id="viewingCount">0</b></div>
 </section>
 <section class="card" id="deviceFormCard">
-  <div class="sectionHead"><div><h2>Adicionar dispositivo</h2><p class="muted">Cadastre DVR, NVR ou câmera IP para monitoramento.</p></div></div>
+  <div class="sectionHead"><div><h2>Adicionar dispositivo</h2><p class="muted">DVR, NVR ou câmera IP. A URL RTSP é usada somente durante a sessão.</p></div></div>
   <div class="grid">
     <label>Nome<input id="name" placeholder="DVR Loja"></label>
     <label>IP / domínio<input id="host" placeholder="192.168.0.180" autocomplete="off"></label>
     <label>Porta<input id="port" type="number" min="1" max="65535" value="80"></label>
     <label>Tipo<select id="type"><option>DVR</option><option>NVR</option><option>Câmera IP</option></select></label>
     <label>Usuário<input id="user" placeholder="admin" autocomplete="username"></label>
-    <label>Senha<input id="pass" type="password" placeholder="Não será salva no navegador" autocomplete="new-password"></label>
+    <label>Senha<input id="pass" type="password" placeholder="Não será salva" autocomplete="new-password"></label>
+    <label class="wide">URL RTSP (opcional)<input id="rtsp" placeholder="rtsp://usuario:senha@192.168.0.180:554/caminho" autocomplete="off"></label>
   </div>
-  <div class="actions"><button id="addBtn" class="primary">＋ Adicionar dispositivo</button><span class="securityHint">🔒 A senha não é gravada no GitHub nem no localStorage.</span></div>
+  <div class="actions"><button id="addBtn" class="primary">＋ Adicionar dispositivo</button><span class="securityHint">🔒 Credenciais e RTSP não são gravados no GitHub nem no localStorage.</span></div>
 </section>
 <section class="card">
-  <div class="sectionHead"><div><h2>Meus dispositivos</h2><p class="muted">Teste a conexão e abra a visualização.</p></div><div class="toolbar"><input id="search" class="search" placeholder="🔎 Buscar dispositivo"><select id="sort"><option value="name">Nome</option><option value="status">Status</option><option value="type">Tipo</option></select></div></div>
+  <div class="sectionHead"><div><h2>Meus dispositivos</h2><p class="muted">Teste conexão, abra o vídeo e organize sua central.</p></div><div class="toolbar"><input id="search" class="search" placeholder="🔎 Buscar dispositivo"><select id="sort"><option value="name">Nome</option><option value="status">Status</option><option value="type">Tipo</option></select></div></div>
   <div id="devices" class="devices"><p class="empty">Nenhum dispositivo cadastrado.</p></div>
 </section>
 <section class="card viewer">
@@ -41,13 +42,14 @@
     <div><h2 id="viewerTitle">Visualização ao vivo</h2><div id="viewerInfo" class="viewerInfo"></div></div>
     <div class="viewerTools"><select id="layout"><option value="1">1 câmera</option><option value="4">4 câmeras</option><option value="9">9 câmeras</option><option value="16">16 câmeras</option></select><button id="fullscreenBtn">⛶ Tela cheia</button><button id="closeBtn" hidden>Fechar</button></div>
   </div>
-  <div id="screen" class="screen grid1"><div class="emptyViewer"><div class="bigCam">📹</div><b>Selecione uma câmera</b><span>O painel está pronto para vídeo HLS/WebRTC.</span></div></div>
+  <div id="screen" class="screen grid1"><div class="emptyViewer"><div class="bigCam">📹</div><b>Selecione uma câmera</b><span>O painel está pronto para vídeo.</span></div></div>
 </section>
 <section class="card helpCard">
-  <h2>Recursos preparados</h2>
-  <div class="features"><span>✓ DVR / NVR / IP</span><span>✓ 1 / 4 / 9 / 16 câmeras</span><span>✓ Tela cheia</span><span>✓ PWA para PC e celular</span><span>✓ Teste de conexão</span><span>✓ ONVIF/RTSP via serviço local</span><span>✓ Base para gravação</span><span>✓ Base para reprodução</span></div>
+  <h2>Recursos</h2>
+  <div class="features"><span>✓ DVR / NVR / IP</span><span>✓ 1 / 4 / 9 / 16 câmeras</span><span>✓ RTSP → HLS local</span><span>✓ Tela cheia</span><span>✓ PWA PC/celular</span><span>✓ Teste de conexão</span><span>✓ Arquitetura ONVIF</span><span>✓ Base para gravação e playback</span></div>
 </section>
-<p class="note">O navegador não reproduz RTSP diretamente. O projeto inclui uma base de serviço local para fazer a ponte segura entre ONVIF/RTSP e o navegador.</p>
+<p class="note">Para vídeo real, instale o Camera Monitor Companion no computador. Ele fica limitado ao próprio PC e faz a ponte RTSP para HLS sem publicar sua senha no GitHub.</p>
 </main>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.2/dist/hls.min.js"></script>
 <script src="app.js"></script>
 </body></html>
