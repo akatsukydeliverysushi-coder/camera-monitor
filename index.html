@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+<title>Camera Monitor</title>
+</head>
+<body>
+<header><div><strong>📹 Camera Monitor</strong><small>Monitoramento de câmeras</small></div><button id="installBtn" hidden>Instalar</button></header>
+<main>
+<section class="card"><h2>Adicionar dispositivo</h2><div class="grid">
+<label>Nome<input id="name" placeholder="DVR Loja"></label>
+<label>IP / domínio<input id="host" placeholder="192.168.0.180"></label>
+<label>Porta<input id="port" type="number" value="80"></label>
+<label>Tipo<select id="type"><option>DVR</option><option>NVR</option><option>Câmera IP</option></select></label>
+<label>Usuário<input id="user" placeholder="admin" autocomplete="username"></label>
+<label>Senha<input id="pass" type="password" placeholder="Senha" autocomplete="current-password"></label>
+</div><div class="actions"><button id="addBtn" class="primary">+ Adicionar dispositivo</button></div></section>
+<section class="card"><div class="sectionHead"><h2>Meus dispositivos</h2><span id="count">0</span></div><div id="devices" class="devices"><p class="empty">Nenhum dispositivo cadastrado.</p></div></section>
+<section class="card viewer"><div class="sectionHead"><h2 id="viewerTitle">Visualização ao vivo</h2><button id="closeBtn" hidden>Fechar</button></div><div id="screen" class="screen"><div>Selecione um dispositivo para iniciar a visualização.</div></div><div id="viewerInfo" class="viewerInfo"></div></section>
+<p class="note">O navegador não abre diretamente streams RTSP. Esta interface fica preparada para conectar a um serviço local/servidor compatível com ONVIF/RTSP.</p>
+</main>
+<script src="app.js"></script>
+</body></html>
