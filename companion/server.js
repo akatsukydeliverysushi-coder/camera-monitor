@@ -29,7 +29,8 @@ function startStream(rtsp){
   if(!(await ffmpegAvailable()))return reject(new Error('FFmpeg não encontrado no Companion'));
   const id=safeId();const dir=path.join(ROOT,id);fs.mkdirSync(dir,{recursive:true});
   const playlist=path.join(dir,'index.m3u8');
-  const args=['-hide_banner','-loglevel','warning','-rtsp_transport','tcp','-i',rtsp,'-analyzeduration','1000000','-probesize','1000000','-c:v','copy','-an','-f','hls','-hls_time','1','-hls_list_size','5','-hls_flags','delete_segments+append_list',playlist];
+  // Transcodifica para H.264 para funcionar nos navegadores mesmo quando a câmera usa H.265/HEVC.
+  const args=['-hide_banner','-loglevel','warning','-rtsp_transport','tcp','-i',rtsp,'-analyzeduration','1000000','-probesize','1000000','-c:v','libx264','-preset','veryfast','-tune','zerolatency','-pix_fmt','yuv420p','-profile:v','main','-level','4.0','-an','-f','hls','-hls_time','1','-hls_list_size','5','-hls_flags','delete_segments+append_list',playlist];
   const proc=spawn(FFMPEG_PATH,args,{windowsHide:true});
   const stream={id,dir,proc,playlist,startedAt:new Date().toISOString(),error:''};streams.set(id,stream);
   let settled=false;
@@ -43,7 +44,7 @@ function startStream(rtsp){
 const server=http.createServer(async(req,res)=>{
  cors(res);
  if(req.method==='OPTIONS'){res.writeHead(204);return res.end();}
- if(req.method==='GET'&&req.url==='/api/health')return json(res,200,{ok:true,service:'Camera Monitor Companion',port:PORT,ffmpeg:await ffmpegAvailable()});
+ if(req.method==='GET'&&req.url==='/api/health')return json(res,200,{ok:true,service:'Camera Monitor Companion',port:PORT,ffmpeg:await ffmpegAvailable(),videoCodec:'h264'});
  if(req.method==='POST'&&req.url==='/api/test'){
   try{const d=await body(req);const host=String(d.host||'').trim();const port=Number(d.port||80);if(!host||!Number.isInteger(port)||port<1||port>65535)return json(res,400,{ok:false,error:'host/port inválidos'});const open=await testPort(host,port);return json(res,200,{ok:true,open,host,port,checkedAt:new Date().toISOString()});}catch{return json(res,400,{ok:false,error:'JSON inválido'});}
  }
