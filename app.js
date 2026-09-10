@@ -1,68 +1,38 @@
 const $=id=>document.getElementById(id);
 let devices=JSON.parse(localStorage.getItem('cameraDevices')||'[]');
-let deferredPrompt=null;
-let activeDevice=null;
-let activeLayout=1;
+let deferredPrompt=null,activeDevice=null,activeLayout=1,activeHls=null,activeStreamId=null;
+const sessionRtsp=new Map();
+const companion=()=> (localStorage.getItem('cameraCompanion')||'http://127.0.0.1:8787').replace(/\/$/,'');
 function save(){localStorage.setItem('cameraDevices',JSON.stringify(devices));render();}
 function esc(v){return String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));}
-function statusLabel(d){return d.status==='online'?'Online':d.status==='offline'?'Offline':'Não testado';}
-function filtered(){
- const q=($('search').value||'').toLowerCase().trim();
- const sort=$('sort').value;
- let list=devices.filter(d=>!q||`${d.name} ${d.host} ${d.type}`.toLowerCase().includes(q));
- list.sort((a,b)=>String(a[sort]||'').localeCompare(String(b[sort]||''),'pt-BR'));
- return list;
-}
+function statusLabel(d){return d.status==='online'?'Online':d.status==='offline'?'Offline':d.status==='testing'?'Testando…':'Não testado';}
+function filtered(){const q=($('search').value||'').toLowerCase().trim(),sort=$('sort').value;let list=devices.filter(d=>!q||`${d.name} ${d.host} ${d.type}`.toLowerCase().includes(q));list.sort((a,b)=>String(a[sort]||'').localeCompare(String(b[sort]||''),'pt-BR'));return list;}
 function render(){
- $('count').textContent=devices.length;
- $('onlineCount').textContent=devices.filter(d=>d.status==='online').length;
- $('offlineCount').textContent=devices.filter(d=>d.status==='offline').length;
- $('viewingCount').textContent=activeDevice?1:0;
- const box=$('devices'); const list=filtered();
- if(!list.length){box.innerHTML='<p class="empty">'+(devices.length?'Nenhum dispositivo encontrado.':'Nenhum dispositivo cadastrado.')+'</p>';return;}
- box.innerHTML=list.map(d=>{
-   const i=devices.indexOf(d); const st=d.status||'unknown';
-   return `<article class="device ${st}"><div class="deviceIcon">📹</div><div class="deviceData"><strong>${esc(d.name)}</strong><span>${esc(d.type)} • ${esc(d.host)}:${esc(d.port)}</span><small>Usuário: ${esc(d.user||'não informado')}</small></div><span class="badge ${st}"><i></i>${statusLabel(d)}</span><div class="deviceActions"><button class="test" data-i="${i}">Testar</button><button class="open" data-i="${i}">Ao vivo</button><button class="delete" data-i="${i}">Excluir</button></div></article>`;
- }).join('');
- box.querySelectorAll('.open').forEach(b=>b.onclick=()=>openDevice(devices[+b.dataset.i]));
- box.querySelectorAll('.delete').forEach(b=>b.onclick=()=>{if(confirm('Excluir este dispositivo?')){if(activeDevice===devices[+b.dataset.i])closeViewer();devices.splice(+b.dataset.i,1);save();}});
- box.querySelectorAll('.test').forEach(b=>b.onclick=()=>testDevice(devices[+b.dataset.i],b));
+ $('count').textContent=devices.length;$('onlineCount').textContent=devices.filter(d=>d.status==='online').length;$('offlineCount').textContent=devices.filter(d=>d.status==='offline').length;$('viewingCount').textContent=activeDevice?1:0;
+ const box=$('devices'),list=filtered();if(!list.length){box.innerHTML='<p class="empty">'+(devices.length?'Nenhum dispositivo encontrado.':'Nenhum dispositivo cadastrado.')+'</p>';return;}
+ box.innerHTML=list.map(d=>{const i=devices.indexOf(d),st=d.status||'unknown';return `<article class="device ${st}"><div class="deviceIcon">📹</div><div class="deviceData"><strong>${esc(d.name)}</strong><span>${esc(d.type)} • ${esc(d.host)}:${esc(d.port)}</span><small>Usuário: ${esc(d.user||'não informado')}</small></div><span class="badge ${st}"><i></i>${statusLabel(d)}</span><div class="deviceActions"><button class="test" data-i="${i}">Testar</button><button class="open" data-i="${i}">Ao vivo</button><button class="delete" data-i="${i}">Excluir</button></div></article>`}).join('');
+ box.querySelectorAll('.open').forEach(b=>b.onclick=()=>openDevice(devices[+b.dataset.i]));box.querySelectorAll('.delete').forEach(b=>b.onclick=()=>{if(confirm('Excluir este dispositivo?')){if(activeDevice===devices[+b.dataset.i])closeViewer();sessionRtsp.delete(devices[+b.dataset.i].id);devices.splice(+b.dataset.i,1);save();}});box.querySelectorAll('.test').forEach(b=>b.onclick=()=>testDevice(devices[+b.dataset.i],b));
 }
-async function testDevice(d,btn){
- btn.disabled=true;btn.textContent='Testando…';d.status='testing';render();
- try{
-   const base=localStorage.getItem('cameraCompanion')||'http://127.0.0.1:8787';
-   const r=await fetch(base.replace(/\/$/,'')+'/api/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({host:d.host,port:d.port})});
-   if(!r.ok)throw Error('Serviço local indisponível');
-   const data=await r.json();d.status=data.open?'online':'offline';d.lastTest=new Date().toISOString();
- }catch(e){d.status='offline';d.lastTest=new Date().toISOString();alert('Não foi possível testar pelo serviço local.\n\nInstale/inicie o Camera Monitor Companion no PC para o teste de rede.');}
- save();
+async function testCompanion(){try{const r=await fetch(companion()+'/api/health',{cache:'no-store'});if(!r.ok)throw 0;$('companionState').textContent='● Serviço local online';$('companionState').className='companionState onlineState';return true}catch{$('companionState').textContent='● Serviço local offline';$('companionState').className='companionState offlineState';return false}}
+async function testDevice(d,btn){btn.disabled=true;btn.textContent='Testando…';d.status='testing';render();try{const r=await fetch(companion()+'/api/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({host:d.host,port:d.port})});if(!r.ok)throw Error();const data=await r.json();d.status=data.open?'online':'offline';d.lastTest=data.checkedAt}catch{d.status='offline';d.lastTest=new Date().toISOString();alert('Não foi possível testar. Verifique se o Companion está instalado e iniciado no PC.')}save();}
+function buildCell(name){const cell=document.createElement('div');cell.className='cameraCell';cell.innerHTML=`<div class="emptyViewer"><div class="bigCam">📹</div><b>${esc(name)}</b><span>Iniciando transmissão…</span></div>`;return cell;}
+async function startVideo(d,cell){
+ const rtsp=sessionRtsp.get(d.id)||prompt('URL RTSP desta câmera (não será salva):','rtsp://');if(!rtsp||rtsp==='rtsp://')return;
+ sessionRtsp.set(d.id,rtsp);
+ cell.innerHTML='<div class="loading"><div class="spinner"></div><b>Conectando ao vídeo…</b><span>O Companion está iniciando a ponte RTSP.</span></div>';
+ try{const r=await fetch(companion()+'/api/stream/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rtsp})});const data=await r.json();if(!r.ok||!data.ok)throw Error(data.error||'Falha ao iniciar vídeo');activeStreamId=data.id;const video=document.createElement('video');video.controls=true;video.autoplay=true;video.muted=true;video.playsInline=true;video.className='cameraVideo';cell.innerHTML='';cell.appendChild(video);
+   if(window.Hls&&Hls.isSupported()){activeHls=new Hls({lowLatencyMode:true,liveSyncDurationCount:2});activeHls.loadSource(data.url);activeHls.attachMedia(video);activeHls.on(Hls.Events.ERROR,(_,e)=>{if(e.fatal)cell.innerHTML='<div class="emptyViewer"><b>Falha no vídeo</b><span>'+esc(e.details||'Erro HLS')+'</span></div>';});}else{video.src=data.url;video.play().catch(()=>{});}
+ }catch(e){cell.innerHTML=`<div class="emptyViewer"><div class="bigCam">⚠</div><b>Não foi possível iniciar</b><span>${esc(e.message||'Verifique RTSP e FFmpeg.')}</span><small>O endereço RTSP não foi armazenado.</small></div>`;}
 }
+async function stopStream(){if(activeHls){try{activeHls.destroy()}catch{}activeHls=null}if(activeStreamId){try{await fetch(companion()+'/api/stream/stop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:activeStreamId})})}catch{}activeStreamId=null}}
 function openDevice(d){
- activeDevice=d;$('viewerTitle').textContent='Ao vivo — '+d.name;$('closeBtn').hidden=false;$('viewerInfo').textContent=`${d.type} • ${d.host}:${d.port} • ${statusLabel(d)}`;
- const screen=$('screen');screen.className='screen grid'+activeLayout;
- screen.innerHTML='';
- for(let n=0;n<activeLayout;n++){
-   const cell=document.createElement('div');cell.className='cameraCell';
-   if(n===0){cell.innerHTML=`<div class="emptyViewer"><div class="bigCam">📹</div><b>${esc(d.name)}</b><span>Pronto para HLS/WebRTC.</span><small>O Companion fará a ponte ONVIF/RTSP.</small></div>`;}
-   else cell.innerHTML='<div class="emptyViewer"><div class="bigCam">＋</div><span>Adicionar câmera</span></div>';
-   screen.appendChild(cell);
- }
- render();document.querySelector('.viewer').scrollIntoView({behavior:'smooth'});
+ stopStream();activeDevice=d;$('viewerTitle').textContent='Ao vivo — '+d.name;$('closeBtn').hidden=false;$('viewerInfo').textContent=`${d.type} • ${d.host}:${d.port} • ${statusLabel(d)}`;const screen=$('screen');screen.className='screen grid'+activeLayout;screen.innerHTML='';
+ for(let n=0;n<activeLayout;n++){const cell=buildCell(n===0?d.name:'Câmera '+(n+1));screen.appendChild(cell);if(n===0)startVideo(d,cell);}render();document.querySelector('.viewer').scrollIntoView({behavior:'smooth'});
 }
-function closeViewer(){activeDevice=null;$('viewerTitle').textContent='Visualização ao vivo';$('closeBtn').hidden=true;$('viewerInfo').textContent='';$('screen').className='screen grid1';$('screen').innerHTML='<div class="emptyViewer"><div class="bigCam">📹</div><b>Selecione uma câmera</b><span>O painel está pronto para vídeo HLS/WebRTC.</span></div>';render();}
-$('closeBtn').onclick=closeViewer;
-$('addBtn').onclick=()=>{
- const d={id:crypto.randomUUID(),name:$('name').value.trim()||'Dispositivo',host:$('host').value.trim(),port:Math.min(65535,Math.max(1,+$('port').value||80)),type:$('type').value,user:$('user').value.trim(),status:'unknown'};
- if(!d.host){alert('Informe o IP ou domínio do dispositivo.');return;}
- if(devices.some(x=>x.host===d.host&&+x.port===d.port)){alert('Este IP e porta já estão cadastrados.');return;}
- devices.push(d);save();['name','host','user','pass'].forEach(id=>$(id).value='');
-};
-$('search').oninput=render;$('sort').onchange=render;
-$('layout').onchange=e=>{activeLayout=+e.target.value;if(activeDevice)openDevice(activeDevice);};
-$('fullscreenBtn').onclick=async()=>{const el=$('.viewer');if(!document.fullscreenElement)await el.requestFullscreen?.();else await document.exitFullscreen?.();};
-$('settingsBtn').onclick=()=>{const current=localStorage.getItem('cameraCompanion')||'http://127.0.0.1:8787';const value=prompt('Endereço do Camera Monitor Companion:',current);if(value!==null&&value.trim())localStorage.setItem('cameraCompanion',value.trim().replace(/\/$/,''));};
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;$('installBtn').hidden=false;});
-$('installBtn').onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$('installBtn').hidden=true;};
-if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
-render();
+async function closeViewer(){await stopStream();activeDevice=null;$('viewerTitle').textContent='Visualização ao vivo';$('closeBtn').hidden=true;$('viewerInfo').textContent='';$('screen').className='screen grid1';$('screen').innerHTML='<div class="emptyViewer"><div class="bigCam">📹</div><b>Selecione uma câmera</b><span>O painel está pronto para vídeo.</span></div>';render();}
+$('closeBtn').onclick=closeViewer;$('search').oninput=render;$('sort').onchange=render;$('layout').onchange=e=>{activeLayout=+e.target.value;if(activeDevice)openDevice(activeDevice)};
+$('fullscreenBtn').onclick=async()=>{const el=$('.viewer');if(!document.fullscreenElement)await el.requestFullscreen?.();else await document.exitFullscreen?.()};
+$('settingsBtn').onclick=()=>{const current=companion();const value=prompt('Endereço do Camera Monitor Companion:',current);if(value!==null&&value.trim()){localStorage.setItem('cameraCompanion',value.trim().replace(/\/$/,''));testCompanion()}};
+$('addBtn').onclick=()=>{const d={id:crypto.randomUUID(),name:$('name').value.trim()||'Dispositivo',host:$('host').value.trim(),port:Math.min(65535,Math.max(1,+$('port').value||80)),type:$('type').value,user:$('user').value.trim(),status:'unknown'};if(!d.host){alert('Informe o IP ou domínio do dispositivo.');return}if(devices.some(x=>x.host===d.host&&+x.port===d.port)){alert('Este IP e porta já estão cadastrados.');return}const rtsp=$('rtsp').value.trim();if(rtsp)sessionRtsp.set(d.id,rtsp);devices.push(d);save();['name','host','user','pass','rtsp'].forEach(id=>$(id).value='')};
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;$('installBtn').hidden=false});$('installBtn').onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$('installBtn').hidden=true};
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});render();testCompanion();
